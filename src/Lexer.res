@@ -2,12 +2,12 @@
 open Types
 
 let isDigit = (c: string) => {
-  let code = Js.String.charCodeAt(0, c)->Js.Math.unsafe_trunc
+  let code = c->String.charCodeAt(0)->Int.fromFloat
   code >= 48 && code <= 57 // '0' to '9'
 }
 
 let isAlpha = (c: string) => {
-  let code = Js.String.charCodeAt(0, c)->Js.Math.unsafe_trunc
+  let code = c->String.charCodeAt(0)->Int.fromFloat
   (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || code == 95 // A-Z, a-z, _
 }
 
@@ -42,11 +42,11 @@ let currencyUnits = ["USD", "EUR", "GBP", "JPY", "CNY", "BTC", "ETH"]
 let timeUnits = ["s", "m", "h", "d", "w", "M", "y", "second", "minute", "hour", "day", "week", "month", "year", "seconds", "minutes", "hours", "days", "weeks", "months", "years"]
 
 let isCurrencyUnit = (unit: string) => {
-  Js.Array2.includes(currencyUnits, unit)
+  Array.includes(currencyUnits, unit)
 }
 
 let isTimeUnit = (unit: string) => {
-  Js.Array2.includes(timeUnits, unit)
+  Array.includes(timeUnits, unit)
 }
 
 type lexerState = {
@@ -71,7 +71,7 @@ let peek = (lexer: lexerState): string => {
   if lexer.position >= String.length(lexer.source) {
     "\x00"
   } else {
-    Js.String2.charAt(lexer.source, lexer.position)
+    String.charAt(lexer.source, lexer.position)
   }
 }
 
@@ -102,7 +102,7 @@ let addToken = (lexer: lexerState, tokenType: tokenType, value: string, literal:
       source: None,
     },
   }
-  lexer.tokens = Js.Array2.concat(lexer.tokens, [token])
+  lexer.tokens = Array.concat(lexer.tokens, [token])
 }
 
 let scanString = (lexer: lexerState, quote: string) => {
@@ -143,11 +143,8 @@ let scanNumber = (lexer: lexerState) => {
     }
   }
 
-  let value = Js.String2.slice(lexer.source, ~from=startPos, ~to_=lexer.position)
-  let num = switch Belt.Float.fromString(value) {
-  | Some(n) => n
-  | None => 0.0
-  }
+  let value = String.slice(lexer.source, ~start=startPos, ~end=lexer.position)
+  let num = Float.fromString(value)->Option.getOr(0.0)
 
   // Check for currency/quantity/time suffix
   if isAlpha(peek(lexer)) {
@@ -155,7 +152,7 @@ let scanNumber = (lexer: lexerState) => {
     while isAlpha(peek(lexer)) {
       let _ = advance(lexer)
     }
-    let unit = Js.String2.slice(lexer.source, ~from=unitStart, ~to_=lexer.position)
+    let unit = String.slice(lexer.source, ~start=unitStart, ~end=lexer.position)
 
     if isCurrencyUnit(unit) {
       addToken(lexer, CURRENCY_UNIT, value ++ unit, Some(LitCurrency(num, unit)), start)
@@ -177,12 +174,12 @@ let scanIdentifier = (lexer: lexerState) => {
     let _ = advance(lexer)
   }
 
-  let value = Js.String2.slice(lexer.source, ~from=startPos, ~to_=lexer.position)
+  let value = String.slice(lexer.source, ~start=startPos, ~end=lexer.position)
 
-  let tokenType = switch Js.Array2.find(keywords, ((kw, _)) => kw == value) {
-  | Some((_, tt)) => tt
-  | None => IDENTIFIER
-  }
+  let tokenType = keywords
+    ->Array.find(((kw, _)) => kw == value)
+    ->Option.map(((_, tt)) => tt)
+    ->Option.getOr(IDENTIFIER)
 
   let literal = switch tokenType {
   | TRUE => Some(LitBool(true))
